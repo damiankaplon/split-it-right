@@ -61,6 +61,7 @@ internal class MainView(private val splittingService: SplittingService) : Vertic
         )
       )
       presentSplit(split)
+      FORMS.clear()
     }
 
     this.add(
