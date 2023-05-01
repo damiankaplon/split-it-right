@@ -11,22 +11,21 @@ object Calculator {
         currencyConverter: CurrencyConverter
     ): Map<Person, Money> {
         val capitalInBaseCurrency = people.map {
-            val rating = currencyConverter.ratingToBase(it.capital.currency)
-            it.capital.denomination.toLong() * rating
+            currencyConverter.convert(it.capital).denomination
         }.reduce { acc, fl -> acc + fl }
 
         val personToCapitalInBaseCurrency = people.associateWith {
-            it.capital.denomination.toLong() * currencyConverter.ratingToBase(it.capital.currency)
+            currencyConverter.convert(it.capital).denomination
         }
 
-        val amountInBaseCurrency = amount.denomination.toLong() * currencyConverter.ratingToBase(amount.currency)
+        val amountInBaseCurrency = currencyConverter.convert(amount).denomination
 
         val personCapitalShare = personToCapitalInBaseCurrency.map {
-            it.key to (it.value / capitalInBaseCurrency)
+            it.key to (it.value.toFloat() / capitalInBaseCurrency.toFloat())
         }.toMap()
         return personCapitalShare.map {
             it.key to Money(
-                denomination = valueOf((it.value * amountInBaseCurrency).toLong()),
+                denomination = valueOf((it.value * amountInBaseCurrency.toLong()).toLong()),
                 currency = currencyConverter.baseCurrency
             )
         }.toMap()

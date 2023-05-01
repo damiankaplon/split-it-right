@@ -1,4 +1,4 @@
-package pl.dk.splititright
+package pl.dk.splititright.views
 
 import com.vaadin.flow.component.HasComponents
 import com.vaadin.flow.component.button.Button
@@ -8,8 +8,12 @@ import com.vaadin.flow.component.html.H1
 import com.vaadin.flow.component.orderedlayout.*
 import com.vaadin.flow.component.textfield.NumberField
 import com.vaadin.flow.router.Route
-import java.math.BigDecimal
-import kotlin.math.round
+import pl.dk.splititright.Currency
+import pl.dk.splititright.Money
+import pl.dk.splititright.Person
+import pl.dk.splititright.SplittingService
+import pl.dk.splititright.ext.Bd
+import pl.dk.splititright.ext.required
 
 
 @Route("")
@@ -19,14 +23,15 @@ internal class MainView(private val splittingService: SplittingService) : Vertic
     val FORMS: MutableSet<PersonForm> = mutableSetOf()
   }
 
-  private val amountToSplitField = NumberField("How much to split?")
+  private val amountToSplitField = NumberField("How much to split?").required()
   private val amountCurrencyBox = ComboBox("Currency", Currency.values().map { it.name })
+  private val splitButton = Button("Split it!")
 
   init {
     this.setSizeFull()
     this.alignItems = FlexComponent.Alignment.CENTER
-
-    amountCurrencyBox.value = "PLN"
+    this.splitButton.isEnabled = false
+    amountCurrencyBox.value = Currency.PLN.name
 
     val moneyToSplitLayout = HorizontalLayout()
     moneyToSplitLayout.add(amountToSplitField)
@@ -40,28 +45,24 @@ internal class MainView(private val splittingService: SplittingService) : Vertic
     peopleScroller.content = peopleFormsLayout
 
 
-    FORMS.add(addPersonForm(peopleFormsLayout))
+    addPersonForm(peopleFormsLayout)
 
     val addButton = Button("Add")
-    addButton.addClickListener {
-      val personForm = addPersonForm(peopleFormsLayout)
-      FORMS.add(personForm)
-      personForm.focus()
-    }
+    addButton.addClickListener { addPersonForm(peopleFormsLayout) }
 
-    val splitButton = Button("Split it!")
     splitButton.addThemeVariants(ButtonVariant.LUMO_PRIMARY)
 
     splitButton.addClickListener {
       val split = splittingService.splitItRight(
         people = FORMS.map { it.person() }.toSet(),
         amount = Money(
-          denomination = (this.amountToSplitField.value * 100).toBigDecimal(),
+          denomination = if (this.amountToSplitField.value == null || this.amountToSplitField.value == 0.0) Bd("0")
+          else (this.amountToSplitField.value * 100).toBigDecimal(),
           currency = Currency.valueOf(this.amountCurrencyBox.value)
         )
       )
-      presentSplit(split)
       FORMS.clear()
+      presentSplit(split)
     }
 
     this.add(
@@ -76,26 +77,24 @@ internal class MainView(private val splittingService: SplittingService) : Vertic
     this.removeAll()
     this.setSizeFull()
     this.alignItems = FlexComponent.Alignment.CENTER
-    this.add(H1("Here is your fair split!"))
-    split.forEach {
-      val layout = VerticalLayout()
-      layout.style.set("box-shadow", "rgba(0, 0, 0, 0.24) 0px 3px 8px")
-      layout.add("<b> ${it.key.name} </b>")
-      val amount: Float = round(it.value.denomination.div(BigDecimal.valueOf(100)).toFloat())
-      layout.add(" fairly pays: <b> $amount ${it.value.currency.name} </b>")
-      this.add(layout)
-    }
+    this.add(ResultView(split))
   }
 
-  private fun addPersonForm(parent: HasComponents): PersonForm {
+  private fun addPersonForm(parent: HasComponents) {
+    this.splitButton.isEnabled = false
     val layout = VerticalLayout()
     layout.alignItems = FlexComponent.Alignment.CENTER
     val removeButton = Button("Remove")
     removeButton.addThemeVariants(ButtonVariant.LUMO_ERROR)
     val personForm = PersonForm()
+    FORMS.add(personForm)
+    personForm.whenChanged { splitButton.isEnabled = FORMS.all { it.isFilled } }
     layout.add(removeButton, personForm)
-    removeButton.addClickListener { parent.remove(layout) }
+    removeButton.addClickListener {
+      FORMS.remove(personForm)
+      parent.remove(layout)
+      splitButton.isEnabled = FORMS.all { it.isFilled }
+    }
     parent.add(layout)
-    return personForm
   }
 }
