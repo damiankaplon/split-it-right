@@ -9,8 +9,8 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      TF_VAR_currency_api_key: ${{ secrets.TERRAFORM_BACKEND_CONN_STR }}
-      TF_VAR_currency_api_url: ${{ secrets.TERRAFORM_BACKEND_CONN_STR }}
+      TF_VAR_currency_api_key: ${{ secrets.CURRENCY_API_KEY }}
+      TF_VAR_currency_api_url: ${{ secrets.CURRENCY_API_URL }}
       TF_VAR_app_name: split-it-right
       PG_BACKEND_CONN_STR: ${{ secrets.TERRAFORM_BACKEND_CONN_STR }}
       HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
@@ -36,7 +36,7 @@ jobs:
           -czvf app.tar.gz ../ 
 
       - name: terraform init
-        run: terraform -chdir=terraform init -backend-config="conn_str=$PG_BACKEND_CONN_STR"
+        run: terraform -chdir=terraform init -backend-config="conn_str=$PG_BACKEND_CONN_STR" -backend-config="schema_name=split-it-right-tf-state"
 
       - name: terraform plan
         run: terraform -chdir=terraform plan
