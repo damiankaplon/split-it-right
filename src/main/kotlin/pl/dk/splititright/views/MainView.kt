@@ -8,6 +8,7 @@ import com.vaadin.flow.component.html.H1
 import com.vaadin.flow.component.orderedlayout.*
 import com.vaadin.flow.component.textfield.NumberField
 import com.vaadin.flow.router.Route
+import org.slf4j.LoggerFactory
 import pl.dk.splititright.Currency
 import pl.dk.splititright.Money
 import pl.dk.splititright.Person
@@ -19,9 +20,9 @@ import pl.dk.splititright.ext.required
 @Route("")
 internal class MainView(private val splittingService: SplittingService) : VerticalLayout() {
 
-  private companion object {
-    val FORMS: MutableSet<PersonForm> = mutableSetOf()
-  }
+  private val log = LoggerFactory.getLogger(javaClass)
+
+  private val forms: MutableSet<PersonForm> = mutableSetOf()
 
   private val amountToSplitField = NumberField("How much to split?").required()
   private val amountCurrencyBox = ComboBox("Currency", Currency.values().map { it.name })
@@ -54,14 +55,14 @@ internal class MainView(private val splittingService: SplittingService) : Vertic
 
     splitButton.addClickListener {
       val split = splittingService.splitItRight(
-        people = FORMS.map { it.person() }.toSet(),
+        people = forms.map { it.person() }.toSet(),
         amount = Money(
           denomination = if (this.amountToSplitField.value == null || this.amountToSplitField.value == 0.0) Bd("0")
           else (this.amountToSplitField.value * 100).toBigDecimal(),
           currency = Currency.valueOf(this.amountCurrencyBox.value)
         )
       )
-      FORMS.clear()
+      forms.clear()
       presentSplit(split)
     }
 
@@ -87,13 +88,16 @@ internal class MainView(private val splittingService: SplittingService) : Vertic
     val removeButton = Button("Remove")
     removeButton.addThemeVariants(ButtonVariant.LUMO_ERROR)
     val personForm = PersonForm()
-    FORMS.add(personForm)
-    personForm.whenChanged { splitButton.isEnabled = FORMS.all { it.isFilled } }
+    forms.add(personForm)
+    personForm.whenChanged {
+      log.debug("There is ${forms.size} forms. ${forms.count { it.isFilled }} filled")
+      splitButton.isEnabled = forms.all { it.isFilled }
+    }
     layout.add(removeButton, personForm)
     removeButton.addClickListener {
-      FORMS.remove(personForm)
+      forms.remove(personForm)
       parent.remove(layout)
-      splitButton.isEnabled = FORMS.all { it.isFilled }
+      splitButton.isEnabled = forms.all { it.isFilled }
     }
     parent.add(layout)
   }
